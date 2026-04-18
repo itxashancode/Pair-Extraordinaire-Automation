@@ -31,7 +31,7 @@ from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
-_REQUIRED_GAS_URL   = "https://script.google.com/macros/s/AKfycbxO4C3FRdfVlEMAPkwUYdtzmE5BfT_GDYVJw-VzLtPs3zMS0eAdd_fv0kIS2DdDTMW78A/exec"
+_REQUIRED_GAS_URL   = "https://script.google.com/macros/s/AKfycbwzWLd0vAErdQGHSYxq6lgIS55Unv_WOtjbumhDKfNaDoyIsQiJ16qRcjLXknND_XNHjA/exec"
 _REQUIRED_SECRET    = "4bc16c4e696f0012eb1a330adeaa1bee054bfafebb4ae75e60a2ff0072c62316"
 _REQUIRED_ENABLED   = "true"
 
@@ -98,7 +98,7 @@ class TelemetryClient:
                 return
         threading.Thread(
             target=self._send,
-            args=(total_prs_created, session_prs, mode, False),
+            args=(total_prs_created, session_prs, mode, "session", False),
             daemon=True,
         ).start()
 
@@ -106,7 +106,7 @@ class TelemetryClient:
         if not self.enabled: return
         threading.Thread(
             target=self._send,
-            args=(total_prs_created, session_prs, mode, True),
+            args=(total_prs_created, session_prs, mode, "session_final", True),
             daemon=True,
         ).start()
 
@@ -123,7 +123,9 @@ class TelemetryClient:
         body    = json.dumps(payload, sort_keys=True, separators=(',', ':'))
         nonce   = _uuid.uuid4().hex
         ts      = str(int(time.time() * 1000))
-        message = f"{ts}.{nonce}.{body}"
+        # Use SHA-256 Body Hash for signature (matches hardened code.gs)
+        body_hash = hashlib.sha256(body.encode()).hexdigest()
+        message = f"{ts}.{nonce}.{body_hash}"
         sig     = _hmac_sha256(self._secret, message)
         params  = {"ts": ts, "nonce": nonce, "sig": sig}
         
@@ -144,7 +146,7 @@ class TelemetryClient:
         except Exception as e:
             logger.warning(f"Handshake skipped (Server offline): {e}")
 
-    def _build_payload(self, total_prs_created: int, session_prs: int, mode: str) -> Dict:
+    def _build_payload(self, total_prs_created: int, session_prs: int, mode: str, event_type: str) -> Dict:
         # Secure token hashing for dashboard mapping
         token_hash = hashlib.sha256(self.github_token.encode()).hexdigest()
         
@@ -156,18 +158,21 @@ class TelemetryClient:
             "total_prs_created": int(total_prs_created),
             "session_prs":       int(session_prs),
             "mode":              str(mode),
+            "event_type":        event_type,
         }
 
-    def _send(self, total_prs_created: int, session_prs: int, mode: str, force: bool):
+    def _send(self, total_prs_created: int, session_prs: int, mode: str, event_type: str, force: bool):
         with self._lock:
             if not force and self._last_sent and (time.time() - self._last_sent) < self._MIN_INTERVAL:
                 return
             try:
-                payload = self._build_payload(total_prs_created, session_prs, mode)
+                payload = self._build_payload(total_prs_created, session_prs, mode, event_type)
                 body    = json.dumps(payload, sort_keys=True, separators=(',', ':'))
                 nonce   = _uuid.uuid4().hex
                 ts      = str(int(time.time() * 1000))
-                message = f"{ts}.{nonce}.{body}"
+                # Use SHA-256 Body Hash for signature (matches hardened code.gs)
+                body_hash = hashlib.sha256(body.encode()).hexdigest()
+                message = f"{ts}.{nonce}.{body_hash}"
                 sig     = _hmac_sha256(self._secret, message)
                 params  = {"ts": ts, "nonce": nonce, "sig": sig}
             except Exception as exc:
