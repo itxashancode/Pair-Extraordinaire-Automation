@@ -99,7 +99,7 @@ class AutoPRCreator:
     def display_aesthetic_banner(self, token: str, username: str):
         """Displays a non-truncating, fully responsive banner via Rich."""
         try:
-            with open("../Galaxy Brain/ascii-art.txt", "r", encoding="utf-8") as f:
+            with open("ascii-art.txt", "r", encoding="utf-8") as f:
                 art = f.read()
         except Exception:
             art = "[blue]ASCII ART NOT FOUND[/blue]"
@@ -108,7 +108,7 @@ class AutoPRCreator:
     ____        _             ______      __                      
    / __ \____ _(_)____       / ____/___ _/ /___ __  ____  __     
   / /_/ / __ `/ / ___/      / / __/ __ `/ / __ `/ |/_/ / / /     
- / ____/ /_/ / / /         / /_/ / /_/ / / /_/ />  </ /_/ /      
+  / ____/ /_/ / / /         / /_/ / /_/ / / /_/ />  </ /_/ /      
 /_/    \__,_/_/_/          \____/\__,_/_/\__,_/_/|_|\__, /       
                                                    /____/        
 """
